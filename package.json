@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": " https://github.com/Abdullah-1213/Growthforgeai.git",
+  "homepage": "https://Abdullah-1213.github.io/Growthforgeai/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
