@@ -1,0 +1,116 @@
+# --- Secrets: DB credentials ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+stringData:
+  DB_USER: appuser
+  DB_PASSWORD: supersecret
+  DB_NAME: appdb
+
+---
+# --- ConfigMap: bootstrap SQL to create table/role & seed data ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init-sql
+data:
+  init.sql: |
+    create role web_anon noinherit login password 'ignored';
+    create table if not exists todos (
+      id serial primary key,
+      title text not null,
+      done boolean default false
+    );
+    insert into todos (title, done)
+    values ('first task', false), ('second task', true)
+    on conflict do nothing;
+
+    -- permissions for PostgREST anon role
+    grant usage on schema public to web_anon;
+    grant select, insert, update, delete on table todos to web_anon;
+    grant usage, select on all sequences in schema public to web_anon;
+
+---
+# --- Service: Postgres ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  ports: [{ port: 5432, targetPort: 5432 }]
+  selector: { app: postgres }
+
+---
+# --- Deployment: Postgres (uses init SQL via docker-entrypoint-initdb.d) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports: [{ containerPort: 5432 }]
+        env:
+        - name: POSTGRES_USER
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_USER } }
+        - name: POSTGRES_PASSWORD
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_PASSWORD } }
+        - name: POSTGRES_DB
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_NAME } }
+        volumeMounts:
+        - name: init-sql
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: init-sql
+        configMap:
+          name: db-init-sql
+
+---
+# --- Service: PostgREST (HTTP API on top of Postgres) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgrest
+spec:
+  ports: [{ port: 3000, targetPort: 3000 }]
+  selector: { app: postgrest }
+
+---
+# --- Deployment: PostgREST ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgrest
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: postgrest } }
+  template:
+    metadata:
+      labels: { app: postgrest }
+    spec:
+      containers:
+      - name: postgrest
+        image: postgrest/postgrest:v12.0.2
+        ports: [{ containerPort: 3000 }]
+        env:
+        - name: PGRST_DB_URI
+          value: postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)
+        - name: DB_USER
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_USER } }
+        - name: DB_PASSWORD
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_PASSWORD } }
+        - name: DB_NAME
+          valueFrom: { secretKeyRef: { name: db-secret, key: DB_NAME } }
+        - name: PGRST_DB_SCHEMA
+          value: public
+        - name: PGRST_DB_ANON_ROLE
+          value: web_anon

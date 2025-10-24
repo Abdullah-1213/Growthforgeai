@@ -44,10 +44,10 @@ export default function Team() {
         >
           <ProfileCard
             image={profile1}
-            name="Sarah Malik"
-            title="Lead Designer"
-            message="Passionate about creating user-centric designs that inspire and connect."
-            linkedinUrl="https://linkedin.com"
+            name="JOHN"
+            title="CO-FOUNDER"
+            message="Passionate about Leading and Automating the stuff"
+            // linkedinUrl="https://linkedin.com"
           />
         </motion.div>
 
@@ -59,10 +59,10 @@ export default function Team() {
         >
           <ProfileCard
             image={profile2}
-            name="Ahsan Javed"
-            title="Full Stack Developer"
+            name="Nadir Rap"
+            title="AI DEVELOPER"
             message="Loves turning complex ideas into clean, scalable digital solutions."
-            linkedinUrl="https://linkedin.com"
+            Fiverr="https://www.fiverr.com/s/Ke1KVw8"
           />
         </motion.div>
       </div>
